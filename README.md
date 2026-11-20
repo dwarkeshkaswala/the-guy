@@ -6,6 +6,55 @@ A local-first, repository-agnostic multi-agent software-engineering orchestrator
 Install once, register any local Git repository, and coordinate independently
 installed coding agents — while you keep control over every change.
 
+**This is the Go implementation** (`guy` v0.2.x): a single static binary per
+platform, no Python runtime required. The original Python implementation
+(v0.1.x) is preserved in this repository's history and on `master`; both CLIs
+share the same SQLite state format, and `guy migrate` adopts existing state
+backup-safely (see `docs/go-migration.md` for migration and rollback).
+
+## Install
+
+Requires Git 2.17+ (2.38+ recommended). No other runtime dependencies — the
+binary is statically linked, including the embedded SQLite (pure Go).
+
+```powershell
+# Windows — build from source (needs Go 1.26+)
+git clone <this-repo>; cd the-guy
+go build -o guy.exe ./cmd/guy
+.\guy.exe --version
+
+# or install into GOBIN
+go install ./cmd/guy
+```
+
+```bash
+# macOS / Linux
+go build -o guy ./cmd/guy && sudo mv guy /usr/local/bin/
+guy --version
+```
+
+Release artifacts (windows/linux/darwin, amd64/arm64, with SHA256SUMS) are
+produced by CI on version tags. Uninstall = delete the binary plus the data
+directories below (nothing else is written outside repos' optional `.guy/`).
+
+## Where state lives
+
+- Windows: data `%LOCALAPPDATA%\the-guy` (SQLite `state.db`, redacted logs,
+  agent worktrees), prefs `%APPDATA%\the-guy`
+- macOS/Linux: `~/.local/share/the-guy` and `~/.config/the-guy` (XDG honored)
+- Override with `GUY_DATA_DIR` / `GUY_PREFS_DIR` (used heavily by tests)
+- Target repositories get nothing except an *optional* `.guy/project.json`
+
+## the-guy CLI adapters vs paid Factory Workstreams
+
+the-guy's Droid support is the **Factory Droid CLI you already have installed**
+(`droid exec`), using its existing local login — no Factory API key, no SDK,
+and no paid "Factory Workstreams" product is used, bundled, or unlocked by
+using the-guy. The same is true for the other adapters: the-guy drives your
+locally installed Claude Code / OpenCode / Codex CLIs with their own auth and
+model settings. Anything billed happens through those CLIs exactly as if you
+ran them yourself.
+
 ## What it does
 
 - **Universal**: works with any local Git repository — any language, layout,
@@ -111,16 +160,24 @@ See `docs/security.md` for the full policy and known limitations.
 
 ## Development
 
-```powershell
-.venv\Scripts\pip install -e ".[dev]"
-.venv\Scripts\pytest          # full suite: disposable repos + mock agents, zero model cost
+```bash
+go fmt ./... && go vet ./...        # quality gates (CI enforces both)
+go test ./...                       # full suite: disposable repos + mock agents, zero model cost
+go build -o guy.exe ./cmd/guy       # Windows example
 ```
 
-Docs: `docs/architecture.md`, `docs/command-reference.md`,
-`docs/security.md`, `docs/troubleshooting.md`.
+The Python implementation and its suite still exist (pip install -e ".[dev]";
+pytest) on `master` for parity checking during migration; the Go port is the
+active implementation on `go-migration` and later mainline releases.
+
+Docs: `docs/architecture.md`, `docs/command-reference.md`, `docs/security.md`,
+`docs/troubleshooting.md`, `docs/go-migration.md`.
 
 ## Status
 
-MVP, version 0.1.0. Known limitations are listed in `docs/troubleshooting.md`
-and the project report. VS Code integration is documented manual usage only —
-no unsupported automation is claimed.
+Go port v0.2.0: functional parity with the Python MVP for the whole command
+surface except the experimental `--planner` flag (deliberately not ported;
+plan files are the supported path). Known limitations are listed in
+`docs/troubleshooting.md` and `docs/go-migration.md`. VS Code integration is
+documented manual usage plus machine-readable `--json` output — no unsupported
+automation is claimed.

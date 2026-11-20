@@ -1,0 +1,54 @@
+name: Migration parity (Python ↔ Go)
+
+# Guards the shared-state contract: the Go CLI must be able to adopt state
+# written by the Python implementation (same SQLite schema + prefs.json).
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  parity:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Create Python-implementation state on a disposable repo
+        shell: pwsh
+        run: |
+          pip install -e ".[dev]"
+          $env:GUY_DATA_DIR = "$pwd\py-state\data"
+          $env:GUY_PREFS_DIR = "$pwd\py-state\prefs"
+          git init -b trunk py-repo
+          git -C py-repo config user.email t@t
+          git -C py-repo config user.name t
+          Set-Content py-repo\README.md "# py"
+          git -C py-repo add -A
+          git -C py-repo commit -m init
+          python -m the_guy repo add py-repo --alias frompython
+          python -m the_guy plan "legacy objective"
+          python -m pytest tests/test_registry.py -q   # sanity: python suite still green
+      - name: Go adopts the state (migrate) and reads it
+        shell: pwsh
+        run: |
+          $env:GUY_DATA_DIR = "$pwd\go-state\data"
+          $env:GUY_PREFS_DIR = "$pwd\go-state\prefs"
+          go build -o guy.exe ./cmd/guy
+          ./guy.exe migrate --from "$pwd\py-state\data" --check
+          ./guy.exe migrate --from "$pwd\py-state\data"
+          ./guy.exe tasks --json
+          $json = ./guy.exe tasks --json | ConvertFrom-Json
+          if ($json.tasks.Count -lt 1) { throw "migrated tasks not visible to Go CLI" }
+          if (-not (Test-Path "$pwd\py-state\data\state.db.pre-go-backup-*")) { throw "backup missing" }
+      - name: Python still reads the same state after migration (rollback path)
+        shell: pwsh
+        run: |
+          $env:GUY_DATA_DIR = "$pwd\py-state\data"
+          $env:GUY_PREFS_DIR = "$pwd\py-state\prefs"
+          $out = python -m the_guy tasks --json | ConvertFrom-Json
+          if ($out.tasks.Count -lt 1) { throw "Python CLI cannot read migrated state" }

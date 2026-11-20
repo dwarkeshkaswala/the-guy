@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Quality gates
+        shell: bash
+        run: |
+          test -z "$(gofmt -l ./cmd ./internal)" || { gofmt -l ./cmd ./internal; exit 1; }
+          go vet ./...
+      - name: Unit tests (with race where CGO is available)
+        if: matrix.os != 'windows-latest'
+        run: go test -race ./...
+      - name: Unit tests (windows)
+        if: matrix.os == 'windows-latest'
+        run: go test ./...
+      - name: Build
+        shell: bash
+        run: go build -o ${{ runner.os == 'Windows' && 'guy.exe' || 'guy' }} ./cmd/guy
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guy-${{ matrix.os }}
+          path: |
+            guy
+            guy.exe
+
+  # Cross-compilation proves the pure-Go toolchain builds everywhere; runtime
+  # support is only claimed for platforms covered by the test job above.
+  cross-compile:
+    name: Cross-compile (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: windows-amd64, goos: windows, goarch: amd64, ext: .exe }
+          - { target: windows-arm64, goos: windows, goarch: arm64, ext: .exe }
+          - { target: linux-amd64, goos: linux, goarch: amd64, ext: "" }
+          - { target: linux-arm64, goos: linux, goarch: arm64, ext: "" }
+          - { target: darwin-amd64, goos: darwin, goarch: amd64, ext: "" }
+          - { target: darwin-arm64, goos: darwin, goarch: arm64, ext: "" }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o guy-${{ matrix.target }}${{ matrix.ext }} ./cmd/guy
+      - uses: actions/upload-artifact@v4
+        with:
+          name: guy-${{ matrix.target }}
+          path: guy-${{ matrix.target }}${{ matrix.ext }}
+
+  release:
+    name: Release (tagged)
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, cross-compile]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Build all release artifacts
+        run: |
+          mkdir -p dist
+          targets="windows-amd64 windows-arm64 linux-amd64 linux-arm64 darwin-amd64 darwin-arm64"
+          for t in $targets; do
+            goos="${t%%-*}"; goarch="${t##*-}"; ext=""
+            [ "$goos" = "windows" ] && ext=".exe"
+            CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/guy-$t$ext" ./cmd/guy
+          done
+          cd dist && sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
