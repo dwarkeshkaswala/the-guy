@@ -37,11 +37,38 @@ func cmdInit(c *Ctx, p parsed) error {
 		config.DataDir(), config.PrefsDir(), config.DBPath()), nil)
 }
 
+// DoctorCheck is one doctor entry (status: ok | warn | fail).
+type DoctorCheck struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Detail string `json:"detail"`
+}
+
 func cmdDoctor(c *Ctx, p parsed) error {
-	type check struct{ Name, Status, Detail string }
-	var checks []check
+	checks, repoInfo, failed := BuildDoctor(c.Store, p.flag("repo"))
+	if c.JSON {
+		c.emit(map[string]any{"checks": checks, "repo": repoInfo}, "")
+	} else {
+		var lines []string
+		for _, ck := range checks {
+			lines = append(lines, fmt.Sprintf("[%-4s] %s: %s", strings.ToUpper(ck.Status), ck.Name, ck.Detail))
+		}
+		lines = append(lines, "", fmt.Sprintf("%d failure(s), the-guy is otherwise operational.", failed))
+		fmt.Fprintln(c.Out, strings.Join(lines, "\n"))
+	}
+	if failed > 0 {
+		return fmt.Errorf("doctor found %d failure(s)", failed)
+	}
+	return nil
+}
+
+// BuildDoctor assembles the doctor report (shared by the CLI command and the
+// desktop GUI service). Returns checks, optional repo info, and the failure
+// count.
+func BuildDoctor(st *store.Store, repoRef string) ([]DoctorCheck, map[string]any, int) {
+	var checks []DoctorCheck
 	add := func(name, status, detail string) {
-		checks = append(checks, check{name, status, detail})
+		checks = append(checks, DoctorCheck{name, status, detail})
 	}
 	add("go", "ok", "the-guy "+Version)
 	if v, err := gitops.Version(); err == nil {
@@ -72,7 +99,7 @@ func cmdDoctor(c *Ctx, p parsed) error {
 			add(label, "ok", dir)
 		}
 	}
-	repos, _ := c.Store.ListRepos()
+	repos, _ := st.ListRepos()
 	add("state db", "ok", fmt.Sprintf("%s (%d repo(s) registered)", config.DBPath(), len(repos)))
 
 	for _, report := range agents.ProbeAllCached() {
@@ -94,16 +121,16 @@ func cmdDoctor(c *Ctx, p parsed) error {
 		add("agent:"+report.Adapter, level, detail)
 	}
 	if pref := config.DefaultRepoRef(); pref != "" {
-		if repo, _ := c.Store.GetRepo(pref); repo != nil {
+		if repo, _ := st.GetRepo(pref); repo != nil {
 			add("default repo", "ok", pref)
 		} else {
 			add("default repo", "warn", pref+" (no longer registered)")
 		}
 	}
 	var repoInfo map[string]any
-	if p.flag("repo") != "" || config.DefaultRepoRef() != "" {
-		if repo, err := resolveRepo(c.Store, p.flag("repo")); err == nil {
-			info := inspectRepo(c.Store, repo)
+	if repoRef != "" || config.DefaultRepoRef() != "" {
+		if repo, err := resolveRepo(st, repoRef); err == nil {
+			info := inspectRepo(st, repo)
 			repoInfo = info
 			if errText, ok := info["error"].(string); ok {
 				add("repo.exists", "fail", errText)
@@ -126,21 +153,7 @@ func cmdDoctor(c *Ctx, p parsed) error {
 			failed++
 		}
 	}
-	if c.JSON {
-		payload := map[string]any{"checks": checks, "repo": repoInfo}
-		c.emit(payload, "")
-	} else {
-		var lines []string
-		for _, ck := range checks {
-			lines = append(lines, fmt.Sprintf("[%-4s] %s: %s", strings.ToUpper(ck.Status), ck.Name, ck.Detail))
-		}
-		lines = append(lines, "", fmt.Sprintf("%d failure(s), the-guy is otherwise operational.", failed))
-		fmt.Fprintln(c.Out, strings.Join(lines, "\n"))
-	}
-	if failed > 0 {
-		return fmt.Errorf("doctor found %d failure(s)", failed)
-	}
-	return nil
+	return checks, repoInfo, failed
 }
 
 func cmdRepo(c *Ctx, p parsed) error {

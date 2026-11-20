@@ -540,6 +540,31 @@ func (s *Store) ActiveRuns() ([]*tasks.RunRecord, error) {
 	return out, rows.Err()
 }
 
+// ListRunsForRepo returns the most recent runs across all tasks of one repo
+// (join on tasks.repo_id), newest first, bounded by limit.
+func (s *Store) ListRunsForRepo(repoID string, limit int) ([]*tasks.RunRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.db.Query(
+		"SELECT r.id, r.task_id, r.adapter, r.argv, r.cwd, r.pid, r.owner_pid, r.status, r.exit_code, r.failure_class, r.started_at, r.finished_at, r.duration_ms, r.log_path "+
+			"FROM runs r JOIN tasks t ON r.task_id = t.id WHERE t.repo_id=? ORDER BY r.started_at DESC, r.id DESC LIMIT ?",
+		repoID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*tasks.RunRecord
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // ---- events ----
 
 func (s *Store) AppendEvent(kind, repoID, taskID string, payload map[string]any) error {
@@ -572,6 +597,35 @@ func (s *Store) RecentEvents(limit int, taskID, repoID string) ([]tasks.EventRec
 	query += " ORDER BY seq DESC LIMIT ?"
 	args = append(args, limit)
 	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []tasks.EventRecord
+	for rows.Next() {
+		var e tasks.EventRecord
+		var repoIDNull, taskIDNull, payload sql.NullString
+		if err := rows.Scan(&e.Seq, &e.TS, &e.Kind, &repoIDNull, &taskIDNull, &payload); err != nil {
+			return nil, err
+		}
+		e.RepoID = repoIDNull.String
+		e.TaskID = taskIDNull.String
+		_ = json.Unmarshal([]byte(orDefault(payload, "{}")), &e.Payload)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// EventsSince returns events with seq > afterSeq in ascending order (for
+// GUI/daemon event streaming with replay after reconnect). Limit bounds the
+// batch; callers detect gaps by comparing returned seqs.
+func (s *Store) EventsSince(afterSeq int, limit int) ([]tasks.EventRecord, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := s.db.Query(
+		"SELECT seq, ts, kind, repo_id, task_id, payload FROM events WHERE seq > ? ORDER BY seq ASC LIMIT ?",
+		afterSeq, limit)
 	if err != nil {
 		return nil, err
 	}

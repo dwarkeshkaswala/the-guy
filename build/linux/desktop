@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=The Guy
+Comment=One guy. Every agent. Any repo.
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/the-guy-desktop %u
+Terminal=false
+Type=Application
+Icon=the-guy-desktop
+Categories=Utility;
+StartupWMClass=the-guy-desktop
+
+ 

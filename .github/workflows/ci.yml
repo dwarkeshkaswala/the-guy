@@ -21,14 +21,14 @@ jobs:
       - name: Quality gates
         shell: bash
         run: |
-          test -z "$(gofmt -l ./cmd ./internal)" || { gofmt -l ./cmd ./internal; exit 1; }
-          go vet ./...
+          test -z "$(gofmt -l ./cmd ./internal .)" || { gofmt -l ./cmd ./internal .; exit 1; }
+          go vet ./cmd/... ./internal/...
       - name: Unit tests (with race where CGO is available)
         if: matrix.os != 'windows-latest'
-        run: go test -race ./...
+        run: go test -race ./cmd/... ./internal/...
       - name: Unit tests (windows)
         if: matrix.os == 'windows-latest'
-        run: go test ./...
+        run: go test ./cmd/... ./internal/...
       - name: Build
         shell: bash
         run: go build -o ${{ runner.os == 'Windows' && 'guy.exe' || 'guy' }} ./cmd/guy
@@ -38,6 +38,40 @@ jobs:
           path: |
             guy
             guy.exe
+
+  # The Guy Desktop (Wails v3): Windows is the primary target and the only one
+  # built+vetted here. The root package imports Wails, whose Linux/macOS
+  # backends need system WebKit headers, so the multi-OS jobs above scope to
+  # ./cmd/... ./internal/... instead of ./....
+  desktop:
+    name: Desktop (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Wails CLI (pinned)
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Generate bindings
+        run: wails3 generate bindings -clean=true -ts -i -d frontend/bindings
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+      - name: Vet + build desktop app
+        shell: bash
+        run: |
+          go vet .
+          go build -tags production -ldflags "-s -w" -o the-guy-desktop.exe .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: the-guy-desktop-windows-amd64
+          path: the-guy-desktop.exe
 
   # Cross-compilation proves the pure-Go toolchain builds everywhere; runtime
   # support is only claimed for platforms covered by the test job above.
@@ -68,7 +102,7 @@ jobs:
   release:
     name: Release (tagged)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [test, cross-compile]
+    needs: [test, cross-compile, desktop]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -87,7 +121,13 @@ jobs:
             CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o "dist/guy-$t$ext" ./cmd/guy
           done
           cd dist && sha256sum * > SHA256SUMS.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: the-guy-desktop-windows-amd64
+          path: dist-desktop
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*
+            dist-desktop/the-guy-desktop.exe
           generate_release_notes: true

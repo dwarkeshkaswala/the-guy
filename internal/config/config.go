@@ -23,7 +23,8 @@ import (
 
 const AppName = "the-guy"
 
-// Defaults mirrors the Python implementation exactly.
+// Defaults mirrors the Python implementation exactly (first seven keys);
+// the ui_* keys are desktop-GUI preferences stored in the same prefs file.
 var Defaults = map[string]any{
 	"max_workers":                2,
 	"default_agent":              nil,
@@ -32,6 +33,10 @@ var Defaults = map[string]any{
 	"log_max_bytes":              1_000_000,
 	"log_retention_days":         30,
 	"safe_retry_failure_classes": []string{"spawn_error"},
+	"display_mode":               "auto",
+	"ui_theme":                   "system",
+	"ui_density":                 "comfortable",
+	"ui_font_size":               14,
 }
 
 func DataDir() string {

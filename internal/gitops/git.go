@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -267,6 +268,44 @@ func DiffNameOnly(worktree, baseline string) ([]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// DiffPatch returns the unified diff of the worktree against the baseline
+// commit, bounded to maxBytes (truncated=true when the full diff exceeded the
+// bound). Untracked files appear as new-file diffs (via `git diff --no-index`,
+// which never touches the index — no `git add -N` side effects).
+func DiffPatch(worktree, baseline string, maxBytes int64) (string, bool, error) {
+	res, err := Git(worktree, true, "diff", baseline)
+	if err != nil {
+		return "", false, err
+	}
+	patch := res.Stdout
+	truncated := int64(len(patch)) > maxBytes
+	if truncated {
+		return patch[:maxBytes], true, nil
+	}
+	if untracked, err := Git(worktree, false, "ls-files", "--others", "--exclude-standard"); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(untracked.Stdout), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			var newFile string
+			if runtime.GOOS == "windows" {
+				newFile = "NUL"
+			} else {
+				newFile = "/dev/null"
+			}
+			out, err := Git(worktree, false, "diff", "--no-index", "--", newFile, line)
+			if err == nil || out.Code == 1 { // exit 1 means differences found
+				patch += out.Stdout
+				if int64(len(patch)) > maxBytes {
+					return patch[:maxBytes], true, nil
+				}
+			}
+		}
+	}
+	return patch, truncated, nil
 }
 
 func CommitsBetween(worktree, baseline, head string) ([]string, error) {

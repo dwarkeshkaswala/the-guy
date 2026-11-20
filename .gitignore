@@ -2,10 +2,21 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-build/
 dist/
 *.egg-info/
 guy
 guy.exe
 guy-*.exe
 adapter-cache.json.tmp
+
+# desktop GUI
+frontend/node_modules/
+frontend/bindings/
+frontend/dist/
+bin/
+the-guy-desktop.exe
+the-guy-desktop-*.exe
+
+# wails task cache
+.task/
+the-guy.exe

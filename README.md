@@ -161,10 +161,26 @@ See `docs/security.md` for the full policy and known limitations.
 ## Development
 
 ```bash
-go fmt ./... && go vet ./...        # quality gates (CI enforces both)
-go test ./...                       # full suite: disposable repos + mock agents, zero model cost
-go build -o guy.exe ./cmd/guy       # Windows example
+gofmt -l ./cmd ./internal . && go vet ./cmd/... ./internal/...   # quality gates (CI enforces both)
+go test ./cmd/... ./internal/...    # full suite: disposable repos + mock agents, zero model cost
+go build -o guy.exe ./cmd/guy       # CLI (Windows example)
 ```
+
+### Desktop GUI (The Guy Desktop)
+
+A Wails v3 desktop control center over the same Go core — no second
+orchestrator, and the CLI keeps working without it.
+
+```bash
+cd frontend && npm install && npm run build && cd ..
+go build -tags production -ldflags "-s -w" -o the-guy-desktop.exe .
+./the-guy-desktop.exe               # or: wails3 dev for live-reload development
+```
+
+Screens: Overview, Repositories, Agents, Plans (JSON validation + task DAG),
+Runs (live read-only logs, cancel), Review (real diffs, test evidence, gated
+integration), Settings (display modes, doctor, redacted diagnostics export).
+Docs: `docs/desktop-architecture.md`, `docs/user-guide.md`, `docs/packaging.md`.
 
 The Python implementation and its suite still exist (pip install -e ".[dev]";
 pytest) on `master` for parity checking during migration; the Go port is the
@@ -175,9 +191,12 @@ Docs: `docs/architecture.md`, `docs/command-reference.md`, `docs/security.md`,
 
 ## Status
 
-Go port v0.2.0: functional parity with the Python MVP for the whole command
-surface except the experimental `--planner` flag (deliberately not ported;
-plan files are the supported path). Known limitations are listed in
-`docs/troubleshooting.md` and `docs/go-migration.md`. VS Code integration is
-documented manual usage plus machine-readable `--json` output — no unsupported
-automation is claimed.
+Go port v0.2.0 + The Guy Desktop (Wails v3.1.0, Windows-tested). CLI: functional
+parity with the Python MVP for the whole command surface except the
+experimental `--planner` flag (deliberately not ported; plan files are the
+supported path). Desktop: same core and on-disk state; runs are owned by the
+window (closing interrupts them; reconcile-on-start matches CLI crash recovery —
+no daemon is claimed). Known limitations: `docs/troubleshooting.md`,
+`docs/go-migration.md`, `docs/packaging.md`. VS Code integration is documented
+manual usage plus machine-readable `--json` output — no unsupported automation
+is claimed.

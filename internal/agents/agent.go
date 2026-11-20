@@ -28,6 +28,7 @@ type CapabilityReport struct {
 	Version          string         `json:"version"`
 	HeadlessVerified bool           `json:"headless_verified"`
 	HeadlessNote     string         `json:"headless_note"`
+	InstallHint      string         `json:"install_hint,omitempty"`
 	Notes            []string       `json:"notes"`
 	ExtensionHint    string         `json:"extension_hint"`
 	Discovery        map[string]any `json:"discovery"`
@@ -84,11 +85,12 @@ func (b *Base) Probe(timeout time.Duration) CapabilityReport {
 	overrides := config.AdapterOverrides()
 	result := Resolve(b.Candidates, b.EnvVar(), overrides[b.AdapterName])
 	report := CapabilityReport{
-		Adapter:   b.AdapterName,
-		Display:   b.AdapterDisplay,
-		Kind:      b.Kind(),
-		Notes:     []string{},
-		Discovery: ResultToMap(result),
+		Adapter:     b.AdapterName,
+		Display:     b.AdapterDisplay,
+		Kind:        b.Kind(),
+		InstallHint: b.AdapterInstallHint,
+		Notes:       []string{},
+		Discovery:   ResultToMap(result),
 	}
 	if b.Kind() == "real" {
 		if hit := VSCodeExtensionHit(b.AdapterName); hit != "" {
