@@ -4,9 +4,9 @@ __pycache__/
 .pytest_cache/
 dist/
 *.egg-info/
-guy
-guy.exe
-guy-*.exe
+/guy
+/guy.exe
+/guy-*.exe
 adapter-cache.json.tmp
 
 # desktop GUI
