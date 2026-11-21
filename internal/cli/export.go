@@ -7,8 +7,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 func RegisterRepo(st *store.Store, path, alias string) (*tasks.Repo, error) {

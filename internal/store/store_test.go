@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 func TestRoundtripAndSequences(t *testing.T) {

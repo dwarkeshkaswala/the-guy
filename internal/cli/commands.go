@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/gitops"
-	"github.com/dwkaswala/the-guy/internal/process"
-	"github.com/dwkaswala/the-guy/internal/redact"
-	"github.com/dwkaswala/the-guy/internal/review"
-	"github.com/dwkaswala/the-guy/internal/scheduler"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/gitops"
+	"github.com/dwarkeshkaswala/the-guy/internal/process"
+	"github.com/dwarkeshkaswala/the-guy/internal/redact"
+	"github.com/dwarkeshkaswala/the-guy/internal/review"
+	"github.com/dwarkeshkaswala/the-guy/internal/scheduler"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 func cmdInit(c *Ctx, p parsed) error {
@@ -927,7 +927,7 @@ func cmdIntegrate(c *Ctx, p parsed) error {
 		_ = c.Store.AddApproval(tasks.ApprovalRecord{
 			ID: approvalID, TargetKind: "plan", TargetID: plan.ID, Kind: "integration",
 			Note: "explicit integration approval", CreatedAt: tasks.UTCNow()})
-		result, err := review.PerformIntegration(c.Store, repo, plan, list, p.bool("skip-tests"))
+		result, err := review.PerformIntegration(c.Store, repo, plan, list, p.bool("skip-tests"), p.bool("allow-out-of-scope"))
 		if err != nil {
 			return err
 		}
@@ -945,7 +945,7 @@ func cmdIntegrate(c *Ctx, p parsed) error {
 		}
 		return nil
 	}
-	preview := review.IntegrationPreview(c.Store, repo, plan, list, p.bool("skip-tests"))
+	preview := review.IntegrationPreview(c.Store, repo, plan, list, p.bool("skip-tests"), p.bool("allow-out-of-scope"))
 	text := "INTEGRATION DRY RUN — nothing will be done. Pass --approve to execute.\n" +
 		fmt.Sprintf("plan %s baseline %s@%.10s\n", plan.ID, preview["baseline"].(map[string]any)["branch"], preview["baseline"].(map[string]any)["commit"]) +
 		fmt.Sprintf("integration branch: %s\n", preview["integration_branch"]) +

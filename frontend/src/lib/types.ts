@@ -1,10 +1,10 @@
 // Shared UI types. Struct-backed shapes come from the generated Wails models;
 // map-typed service results get explicit local interfaces so screens stay typed.
-import type { Task, RunRecord, TestResult } from "../../bindings/github.com/dwkaswala/the-guy/internal/tasks/models.js";
-import type { RepoView, HealthReport, PlanValidation, PlanView, RunView, LogChunk, DiffView, DoctorReport } from "../../bindings/github.com/dwkaswala/the-guy/internal/application/models.js";
-import type { CapabilityReport } from "../../bindings/github.com/dwkaswala/the-guy/internal/agents/models.js";
-import type { PlannedLaunch } from "../../bindings/github.com/dwkaswala/the-guy/internal/scheduler/models.js";
-import type { DoctorCheck } from "../../bindings/github.com/dwkaswala/the-guy/internal/cli/models.js";
+import type { Task, RunRecord, TestResult } from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/tasks/models.js";
+import type { RepoView, HealthReport, PlanValidation, PlanView, RunView, LogChunk, DiffView, DoctorReport } from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/application/models.js";
+import type { CapabilityReport } from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/agents/models.js";
+import type { PlannedLaunch } from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/scheduler/models.js";
+import type { DoctorCheck } from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/cli/models.js";
 
 // Plan is returned inside map-typed payloads, so the generator never sees it —
 // mirrored here from internal/tasks (id, repo_id, prompt, baselines, status).

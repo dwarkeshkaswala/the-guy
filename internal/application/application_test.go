@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 var guyBin string
@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 	if runtime.GOOS == "windows" {
 		bin += ".exe"
 	}
-	build := exec.Command("go", "build", "-o", bin, "github.com/dwkaswala/the-guy/cmd/guy")
+	build := exec.Command("go", "build", "-o", bin, "github.com/dwarkeshkaswala/the-guy/cmd/guy")
 	build.Env = os.Environ()
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "building test binary: %v\n%s\n", err, out)

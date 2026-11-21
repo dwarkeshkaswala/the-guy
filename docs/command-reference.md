@@ -13,7 +13,31 @@ guy agents doctor [NAME]  # full discovery diagnostics for one or all adapters
 guy agents set NAME PATH  # persist an explicit executable path override
 guy agents clear NAME     # remove the override; auto-discovery resumes
 guy agents rescan         # clear the probe cache and rediscover everything
+guy agents smoke [NAME...] [--approve] [--timeout S]
+                          # prove each agent can EDIT files headlessly
 ```
+
+### `guy agents smoke`
+
+`--version`/`--help` probes prove a CLI exists, not that it will change files
+when the-guy runs it non-interactively (some CLIs need a permission /
+auto-approve option for that). `smoke` runs one tiny real job per agent —
+default: every verified real adapter, one at a time — in a throwaway git repo
+under `<data>/smoke/`, asking it to create `guy-smoke.txt` with a random token.
+Without `--approve` it is a dry run. These are real model calls (credits).
+
+| Verdict | Meaning |
+|---|---|
+| `ok` | file created with the exact token (other changed files are listed) |
+| `no_edit` | exited 0 but created nothing — usually a missing permission/auto-approve option |
+| `wrong_content` | file created, content differs |
+| `timeout` | no exit — typically waiting for an interactive prompt or login |
+| `failed` | non-zero exit (auth, endpoint, rate limit…); last output lines shown |
+| `unavailable` | adapter not installed / not headless-verified |
+
+Exit code 1 if any agent is not `ok`. Failing runs keep their repo for
+inspection; every run writes a log under `<data>/logs/smoke/` and an
+`agent_smoke` event. `guy agents` shows each real agent's latest verdict.
 
 ### How discovery works
 
@@ -174,9 +198,20 @@ guy events [--limit N] [--repo X]   # audit trail
 ```
 guy review TASK-001                 # diff stat, changed files, handoff (md + json)
 guy review TASK-001 --run-tests     # explicitly run required_tests in the worktree
-guy integrate [--dry-run] [--plan P] [--skip-tests]
-guy integrate --approve [--plan P] [--skip-tests]
+guy integrate [--dry-run] [--plan P] [--skip-tests] [--allow-out-of-scope]
+guy integrate --approve [--plan P] [--skip-tests] [--allow-out-of-scope]
 ```
+
+### Work-product checks (automatic, after every successful write run)
+
+- **No changes**: a write task whose agent exited 0 but changed no file still
+  goes to `needs_review`, with exit reason "exit 0 but NO files changed", a
+  `[no-changes]` concern in the review handoff, and a `task_no_changes` event.
+- **Out of scope**: files changed outside the task's `allowed_paths` (dirs,
+  exact files, globs; `*` crosses `/`) give an `[out-of-scope]` concern and a
+  `task_out_of_scope` event. An empty `allowed_paths` means the whole repo.
+- Adapter bookkeeping files (the mock agent's `mock-prompt-received.txt`) are
+  ignored by both checks. Concerns are replaced, not duplicated, on re-runs.
 
 - `approve` is never a commit/merge/push.
 - `integrate --dry-run` prints the exact git actions, predicted conflicts
@@ -187,6 +222,10 @@ guy integrate --approve [--plan P] [--skip-tests]
   how a dependent task unblocks incrementally.
 - Gate: every approved task with `required_tests` needs recorded passing
   results, unless you pass `--skip-tests` explicitly.
+- Gate: no approved task may have changed files outside its `allowed_paths`.
+  This is re-checked against the worktree at integration time, so reverting
+  the stray files clears it; `--allow-out-of-scope` overrides after review.
+  (The desktop app does not offer the override; use the CLI.)
 - On conflict the merge is aborted, the plan is marked `conflict`, conflicted
   files are listed, and the default branch remains untouched.
 - Nothing is ever pushed; publishing stays a human action.

@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
 )
 
 type AdapterUnavailable struct{ Msg string }

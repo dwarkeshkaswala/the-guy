@@ -1,8 +1,8 @@
 // Typed API layer over the generated Wails bindings. Screens never import
 // bindings directly — this is the one place that knows the service surface.
 import { Events } from "@wailsio/runtime";
-import * as Service from "../../bindings/github.com/dwkaswala/the-guy/internal/application/service.js";
-import * as Desktop from "../../bindings/github.com/dwkaswala/the-guy/desktopservice.js";
+import * as Service from "../../bindings/github.com/dwarkeshkaswala/the-guy/internal/application/service.js";
+import * as Desktop from "../../bindings/github.com/dwarkeshkaswala/the-guy/desktopservice.js";
 import type {
   Task, Plan, RunRecord, RepoView, HealthReport, PlanValidation, PlanView,
   RunView, LogChunk, DiffView, DoctorReport, CapabilityReport, PlannedLaunch,

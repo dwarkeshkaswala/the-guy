@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/redact"
+	"github.com/dwarkeshkaswala/the-guy/internal/redact"
 )
 
 // Outcome summarizes one execution.

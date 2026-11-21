@@ -29,13 +29,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/gitops"
-	"github.com/dwkaswala/the-guy/internal/process"
-	"github.com/dwkaswala/the-guy/internal/scheduler"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/gitops"
+	"github.com/dwarkeshkaswala/the-guy/internal/process"
+	"github.com/dwarkeshkaswala/the-guy/internal/scheduler"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 const plannerInstructions = `You are the planning step of a multi-agent software engineering orchestrator.

@@ -12,11 +12,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/gitops"
-	"github.com/dwkaswala/the-guy/internal/process"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/gitops"
+	"github.com/dwarkeshkaswala/the-guy/internal/process"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 type ReviewError struct{ Msg string }
@@ -259,6 +259,19 @@ func RunTests(st *store.Store, repo *tasks.Repo, task *tasks.Task, settings map[
 	return results, nil
 }
 
+// scopeGate re-checks, against the worktree as it is now, which work files
+// fall outside the task's allowed_paths (so reverting them clears the gate).
+func scopeGate(task *tasks.Task) []string {
+	if task.ReadOnly || task.Worktree == "" || len(task.AllowedPaths) == 0 {
+		return nil
+	}
+	changed, err := gitops.ChangedSince(task.Worktree, task.BaselineCommit)
+	if err != nil {
+		return nil
+	}
+	return tasks.OutOfScope(tasks.WorkFiles(task.Agent, changed), task.AllowedPaths)
+}
+
 func testsGate(task *tasks.Task) (bool, []string) {
 	if len(task.RequiredTests) == 0 {
 		return true, nil
@@ -315,7 +328,7 @@ func topoOrder(list []*tasks.Task) ([]*tasks.Task, error) {
 }
 
 // IntegrationPreview describes exactly what --approve would do.
-func IntegrationPreview(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, list []*tasks.Task, skipTests bool) map[string]any {
+func IntegrationPreview(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, list []*tasks.Task, skipTests, allowOutOfScope bool) map[string]any {
 	var writeTasks []*tasks.Task
 	for _, t := range list {
 		if !t.ReadOnly {
@@ -379,6 +392,14 @@ func IntegrationPreview(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, lis
 		actions = append(actions, fmt.Sprintf("merge %s into %s", task.Branch, integrationBranch))
 		entry["actions"] = entryActions
 		perTask = append(perTask, entry)
+		if outside := scopeGate(task); len(outside) > 0 {
+			entry["out_of_scope"] = outside
+			if !allowOutOfScope {
+				gateFailures = append(gateFailures, fmt.Sprintf(
+					"%s changed files outside its allowed_paths %v: %s (revert them in %s, or pass --allow-out-of-scope after reviewing)",
+					task.ID, task.AllowedPaths, strings.Join(outside, ", "), task.Worktree))
+			}
+		}
 		if ok, missing := testsGate(task); !ok && !skipTests {
 			gateFailures = append(gateFailures, fmt.Sprintf(
 				"%s required tests not passing yet: %s (run `guy review --run-tests` or pass --skip-tests explicitly)",
@@ -404,15 +425,15 @@ func IntegrationPreview(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, lis
 		"integration_worktree": integrationWT,
 		"actions":              actions, "per_task": perTask, "pending": pending,
 		"predicted_conflicts": conflicts, "gate_failures": gateFailures,
-		"skip_tests": skipTests, "ready": approvedWrite > 0 && len(gateFailures) == 0,
+		"skip_tests": skipTests, "allow_out_of_scope": allowOutOfScope, "ready": approvedWrite > 0 && len(gateFailures) == 0,
 	}
 }
 
 // PerformIntegration executes the approved integration step. Commits happen
 // only here, with approval, on task branches; merges are --no-ff into the
 // integration branch. Never pushes; never touches the default branch.
-func PerformIntegration(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, list []*tasks.Task, skipTests bool) (map[string]any, error) {
-	preview := IntegrationPreview(st, repo, plan, list, skipTests)
+func PerformIntegration(st *store.Store, repo *tasks.Repo, plan *tasks.Plan, list []*tasks.Task, skipTests, allowOutOfScope bool) (map[string]any, error) {
+	preview := IntegrationPreview(st, repo, plan, list, skipTests, allowOutOfScope)
 	if failures, ok := preview["gate_failures"].([]string); ok && len(failures) > 0 {
 		return nil, &ReviewError{Msg: "integration gates failed:\n  - " + strings.Join(failures, "\n  - ")}
 	}

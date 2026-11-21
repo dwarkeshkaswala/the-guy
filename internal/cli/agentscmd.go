@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
 )
 
 func cmdAgents(c *Ctx, p parsed) error {
@@ -26,12 +26,15 @@ func cmdAgents(c *Ctx, p parsed) error {
 		return agentsClear(c, p.arg(1))
 	case "rescan":
 		return agentsRescan(c)
+	case "smoke":
+		return agentsSmoke(c, p)
 	}
-	return usage("unknown agents subcommand %q (list|doctor|set|clear|rescan)", sub)
+	return usage("unknown agents subcommand %q (list|doctor|set|clear|rescan|smoke)", sub)
 }
 
 func agentsList(c *Ctx) error {
 	reports := agents.ProbeAllCached()
+	lastSmoke := latestSmokeByAgent(c)
 	var lines []string
 	lines = append(lines, "Adapters (capability-checked against the installed CLIs — never assumed):", "")
 	for _, r := range reports {
@@ -50,12 +53,41 @@ func agentsList(c *Ctx) error {
 		if r.Version != "" {
 			lines = append(lines, "             version: "+r.Version)
 		}
+		if r.Kind != "mock" && r.HeadlessVerified {
+			if sm, ok := lastSmoke[r.Adapter]; ok {
+				lines = append(lines, fmt.Sprintf("             last smoke test: %s (%s)", sm["verdict"], sm["ts"]))
+			} else {
+				lines = append(lines, "             edit capability not yet proven: `guy agents smoke "+r.Adapter+" --approve`")
+			}
+		}
 	}
 	lines = append(lines, "",
 		"Discovery: override (GUY_<NAME>_PATH / `guy agents set`) > PATH > adapter-specific roots > common install locations.",
 		"Diagnostics: `guy agents doctor`; re-probe after installing: `guy agents rescan`.",
 		"VS Code / Copilot is treated as the human review interface, not a headless worker.")
-	return okErr(c, strings.Join(lines, "\n"), map[string]any{"adapters": reports})
+	return okErr(c, strings.Join(lines, "\n"), map[string]any{"adapters": reports, "last_smoke": lastSmoke})
+}
+
+// latestSmokeByAgent returns each agent's most recent smoke verdict.
+func latestSmokeByAgent(c *Ctx) map[string]map[string]any {
+	out := map[string]map[string]any{}
+	if c.Store == nil {
+		return out
+	}
+	events, err := c.Store.RecentEventsOfKind("agent_smoke", 200)
+	if err != nil {
+		return out
+	}
+	for _, e := range events { // newest first
+		name, _ := e.Payload["agent"].(string)
+		if name == "" {
+			continue
+		}
+		if _, seen := out[name]; !seen {
+			out[name] = map[string]any{"verdict": e.Payload["verdict"], "ts": e.TS, "detail": e.Payload["detail"]}
+		}
+	}
+	return out
 }
 
 func agentsDoctor(c *Ctx, name string) error {

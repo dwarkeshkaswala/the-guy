@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -380,4 +381,55 @@ func DeleteBranch(root, branch string, force bool) error {
 	}
 	_, err := Git(root, true, "branch", flag, branch)
 	return err
+}
+
+// ChangedSince lists every repo-relative path a worktree changed relative to
+// baseline: committed and uncommitted tracked changes plus untracked files.
+// Sorted and de-duplicated.
+func ChangedSince(worktree, baseline string) ([]string, error) {
+	seen := map[string]bool{}
+	var out []string
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p != "" && !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+	// -uall lists files inside new directories individually (plain
+	// --porcelain collapses them to "dir/"), so scope checks see real paths.
+	res, err := Git(worktree, true, "status", "--porcelain", "--untracked-files=all")
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range strings.Split(res.Stdout, "\n") {
+		if len(line) < 4 {
+			continue
+		}
+		path := line[3:]
+		if from, to, ok := strings.Cut(path, " -> "); ok { // rename: both sides changed
+			add(unquote(from))
+			path = to
+		}
+		add(unquote(path))
+	}
+	diffed, err := DiffNameOnly(worktree, baseline)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range diffed {
+		add(p)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+func unquote(p string) string {
+	if len(p) >= 2 && strings.HasPrefix(p, "\"") && strings.HasSuffix(p, "\"") {
+		if u, err := strconv.Unquote(p); err == nil {
+			return u
+		}
+		return p[1 : len(p)-1]
+	}
+	return p
 }

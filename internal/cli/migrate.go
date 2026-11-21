@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
 )
 
 // cmdMigrate adopts state created by the Python implementation. The Go and

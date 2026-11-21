@@ -9,7 +9,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
 )
 
 // Probe cache: display-only, with automatic rediscovery. The fingerprint

@@ -9,7 +9,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/dwkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
 )
 
 // Version is the CLI version. It is a var so release builds can stamp it via
@@ -40,6 +40,7 @@ var globalBoolFlags = map[string]bool{
 	"json": true, "dry-run": true, "approve": true, "follow": true, "purge": true,
 	"keep": true, "branch": true, "run-tests": true, "skip-tests": true, "yes": true,
 	"check": true, "force": true, "help": true, "tree": true, "all": true,
+	"allow-out-of-scope": true,
 }
 
 func parseArgs(args []string, boolFlags map[string]bool) parsed {
@@ -128,6 +129,8 @@ Commands:
   doctor [--repo R]             environment and agent health check
   agents [list|doctor|set|clear|rescan]
                                 agent adapters: capabilities, discovery, configuration
+  agents smoke [NAME...] [--approve] [--timeout S]
+                                real headless edit test per agent (dry run without --approve)
   repo add <path> [--alias A]   register a git repository
   repo list                     list registered repositories
   repo remove <R> [--purge]     unregister (optionally purge clean worktrees)
@@ -144,7 +147,7 @@ Commands:
   status [--repo R]             tasks, branches, logs, running PIDs
   logs <TASK> [--follow]        show task run logs
   review <TASK> [--run-tests]   diff + test evidence + handoff
-  integrate [--dry-run|--approve] [--plan P] [--skip-tests]
+  integrate [--dry-run|--approve] [--plan P] [--skip-tests] [--allow-out-of-scope]
                                 merge approved tasks into an integration branch
   cancel <TASK>                 cancel a task and kill its process tree
   clean (--task T | --plan P) [--branch]
@@ -189,6 +192,9 @@ func Run(args []string, stdout, stderr io.Writer, st *store.Store) int {
 	err := handler(ctx, p)
 	if err == nil {
 		return 0
+	}
+	if _, ok := err.(*silentError); ok {
+		return 1 // the command already printed its own (failing) report
 	}
 	var ue *usageError
 	if e, ok := err.(*usageError); ok {

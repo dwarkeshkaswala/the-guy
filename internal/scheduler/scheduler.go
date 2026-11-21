@@ -10,18 +10,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/gitops"
-	"github.com/dwkaswala/the-guy/internal/process"
-	"github.com/dwkaswala/the-guy/internal/redact"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/gitops"
+	"github.com/dwarkeshkaswala/the-guy/internal/process"
+	"github.com/dwarkeshkaswala/the-guy/internal/redact"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 type SchedulingError struct{ Msg string }
@@ -520,21 +519,16 @@ func (s *Scheduler) launch(task *tasks.Task) launchResult {
 		task.ExitReason = fmt.Sprintf("timed out after %ds", timeout)
 		s.finish(task, tasks.StatusFailed, &result)
 	case outcome.ExitCode == 0:
+		task.ExitReason = "ok (exit 0 — human review still required)"
 		if !task.ReadOnly && task.Worktree != "" {
-			entries, _ := gitops.StatusPorcelain(task.Worktree)
-			var changed []string
-			for _, e := range entries {
-				changed = append(changed, e[1])
+			if changed, err := gitops.ChangedSince(task.Worktree, task.BaselineCommit); err == nil {
+				task.ChangedFiles = changed
 			}
-			if diffed, err := gitops.DiffNameOnly(task.Worktree, task.BaselineCommit); err == nil {
-				changed = append(changed, diffed...)
-			}
-			task.ChangedFiles = dedupeSorted(changed)
 			if commits, err := gitops.CommitsBetween(task.Worktree, task.BaselineCommit, "HEAD"); err == nil {
 				task.Commits = commits
 			}
+			s.checkWorkProduct(task, runID, logPath)
 		}
-		task.ExitReason = "ok (exit 0 — human review still required)"
 		s.finish(task, tasks.StatusNeedsReview, &result)
 	default:
 		task.ExitReason = fmt.Sprintf("agent exited with code %d; see logs", outcome.ExitCode)
@@ -593,20 +587,39 @@ func (s *Scheduler) finish(task *tasks.Task, status string, result *launchResult
 	result.reason = reason
 }
 
-func dedupeSorted(in []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
 func dirExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && st.IsDir()
+}
+
+// checkWorkProduct inspects what a write task's successful run actually
+// produced. An exit code of 0 says nothing about whether files changed (a CLI
+// in non-interactive mode may lack write permission and quietly do nothing),
+// or whether the agent stayed inside the task's allowed_paths. Both outcomes
+// become review concerns and audit events; scope violations additionally
+// gate integration (see review.IntegrationPreview).
+func (s *Scheduler) checkWorkProduct(task *tasks.Task, runID, logPath string) {
+	work := tasks.WorkFiles(task.Agent, task.ChangedFiles)
+
+	var noChange []string
+	if len(work) == 0 {
+		task.ExitReason = "exit 0 but NO files changed — the agent may lack write permission in non-interactive mode, " +
+			"or misunderstood the task; check the run log"
+		noChange = append(noChange, fmt.Sprintf(
+			"Agent '%s' exited 0 without changing any file. If this was not intended, check its log (%s) "+
+				"and `guy agents smoke %s --approve` to verify it can edit files headlessly.", task.Agent, logPath, task.Agent))
+		_ = s.Store.AppendEvent("task_no_changes", s.Repo.ID, task.ID, map[string]any{
+			"run_id": runID, "agent": task.Agent})
+	}
+	task.Concerns = tasks.ReplaceConcerns(task.Concerns, tasks.ConcernNoChanges, noChange...)
+
+	var scope []string
+	if outside := tasks.OutOfScope(work, task.AllowedPaths); len(outside) > 0 {
+		scope = append(scope, fmt.Sprintf(
+			"%d file(s) changed outside allowed_paths %v: %s. Integration is blocked until they are reverted "+
+				"or you pass --allow-out-of-scope.", len(outside), task.AllowedPaths, strings.Join(outside, ", ")))
+		_ = s.Store.AppendEvent("task_out_of_scope", s.Repo.ID, task.ID, map[string]any{
+			"run_id": runID, "files": outside, "allowed_paths": task.AllowedPaths})
+	}
+	task.Concerns = tasks.ReplaceConcerns(task.Concerns, tasks.ConcernOutOfScope, scope...)
 }

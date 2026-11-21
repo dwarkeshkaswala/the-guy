@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/cli"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/cli"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
 )
 
 // version is stamped by release builds: -ldflags "-X main.version=v0.2.1".

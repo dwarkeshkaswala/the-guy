@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 func TestCreatePlanWithPlannerFromDesktop(t *testing.T) {

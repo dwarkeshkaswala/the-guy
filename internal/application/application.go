@@ -18,15 +18,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/cli"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/gitops"
-	"github.com/dwkaswala/the-guy/internal/redact"
-	"github.com/dwkaswala/the-guy/internal/review"
-	"github.com/dwkaswala/the-guy/internal/scheduler"
-	"github.com/dwkaswala/the-guy/internal/store"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/cli"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/gitops"
+	"github.com/dwarkeshkaswala/the-guy/internal/redact"
+	"github.com/dwarkeshkaswala/the-guy/internal/review"
+	"github.com/dwarkeshkaswala/the-guy/internal/scheduler"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 // EventSink receives live notifications. The Wails app adapts this to
@@ -867,7 +867,7 @@ func (s *Service) PreviewIntegration(repoRef, planID string, skipTests bool) (ma
 		return nil, err
 	}
 	list, _ := s.Store.ListTasks("", plan.ID)
-	return review.IntegrationPreview(s.Store, repo, plan, list, skipTests), nil
+	return review.IntegrationPreview(s.Store, repo, plan, list, skipTests, false), nil
 }
 
 // Integrate performs the explicitly approved integration step (records the
@@ -888,7 +888,7 @@ func (s *Service) Integrate(repoRef, planID string, skipTests bool) (map[string]
 	_ = s.Store.AddApproval(tasks.ApprovalRecord{
 		ID: approvalID, TargetKind: "plan", TargetID: plan.ID, Kind: "integration",
 		Note: "explicit integration approval (desktop GUI)", CreatedAt: tasks.UTCNow()})
-	return review.PerformIntegration(s.Store, repo, plan, list, skipTests)
+	return review.PerformIntegration(s.Store, repo, plan, list, skipTests, false)
 }
 
 // ---- settings / diagnostics ----

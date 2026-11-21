@@ -19,12 +19,12 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/dwkaswala/the-guy/internal/agents"
-	"github.com/dwkaswala/the-guy/internal/application"
-	"github.com/dwkaswala/the-guy/internal/cli"
-	"github.com/dwkaswala/the-guy/internal/config"
-	"github.com/dwkaswala/the-guy/internal/scheduler"
-	"github.com/dwkaswala/the-guy/internal/store"
+	"github.com/dwarkeshkaswala/the-guy/internal/agents"
+	"github.com/dwarkeshkaswala/the-guy/internal/application"
+	"github.com/dwarkeshkaswala/the-guy/internal/cli"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/scheduler"
+	"github.com/dwarkeshkaswala/the-guy/internal/store"
 	wails "github.com/wailsapp/wails/v3/pkg/application"
 )
 

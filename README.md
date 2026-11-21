@@ -25,6 +25,9 @@ go build -o guy.exe ./cmd/guy
 
 # or install into GOBIN
 go install ./cmd/guy
+
+# or straight from GitHub (no clone)
+go install github.com/dwarkeshkaswala/the-guy/cmd/guy@latest
 ```
 
 ```bash

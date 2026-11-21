@@ -17,8 +17,8 @@ import (
 
 	_ "modernc.org/sqlite"
 
-	"github.com/dwkaswala/the-guy/internal/pathutil"
-	"github.com/dwkaswala/the-guy/internal/tasks"
+	"github.com/dwarkeshkaswala/the-guy/internal/pathutil"
+	"github.com/dwarkeshkaswala/the-guy/internal/tasks"
 )
 
 const schema = `
@@ -580,9 +580,22 @@ func (s *Store) AppendEvent(kind, repoID, taskID string, payload map[string]any)
 }
 
 func (s *Store) RecentEvents(limit int, taskID, repoID string) ([]tasks.EventRecord, error) {
+	return s.recentEvents(limit, taskID, repoID, "")
+}
+
+// RecentEventsOfKind returns the newest events of one kind (newest first).
+func (s *Store) RecentEventsOfKind(kind string, limit int) ([]tasks.EventRecord, error) {
+	return s.recentEvents(limit, "", "", kind)
+}
+
+func (s *Store) recentEvents(limit int, taskID, repoID, kind string) ([]tasks.EventRecord, error) {
 	query := "SELECT seq, ts, kind, repo_id, task_id, payload FROM events"
 	var clauses []string
 	var args []any
+	if kind != "" {
+		clauses = append(clauses, "kind=?")
+		args = append(args, kind)
+	}
 	if taskID != "" {
 		clauses = append(clauses, "task_id=?")
 		args = append(args, taskID)

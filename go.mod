@@ -1,4 +1,4 @@
-module github.com/dwkaswala/the-guy
+module github.com/dwarkeshkaswala/the-guy
 
 go 1.26.2
 

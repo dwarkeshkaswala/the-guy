@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/dwkaswala/the-guy/internal/config"
+	"github.com/dwarkeshkaswala/the-guy/internal/config"
 )
 
 // hermetic redirects the-guy state, isolates PATH (keeping git + System32 so
