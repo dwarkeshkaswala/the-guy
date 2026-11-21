@@ -30,6 +30,7 @@ var Defaults = map[string]any{
 	"default_agent":              nil,
 	"run_timeout_seconds":        1800,
 	"planner_timeout_seconds":    300,
+	"planner_max_tasks":          8,
 	"log_max_bytes":              1_000_000,
 	"log_retention_days":         30,
 	"safe_retry_failure_classes": []string{"spawn_error"},

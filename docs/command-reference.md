@@ -76,9 +76,34 @@ your terminal session. Detected test commands are hints only — never executed.
 ```
 guy plan "objective" [--base BRANCH] [--agent NAME]       # single-task DRAFT
 guy plan --file plan.json [--base BRANCH] [--agent NAME]  # full DAG (below)
-guy plan "objective" --planner <agent>                    # experimental LLM planning
-                                                          # (real CLI call; may cost)
+guy plan "objective" --planner <agent> [--agent NAME]    # agent breaks the goal into
+                                                          # a DRAFT DAG (real CLI call;
+                                                          # uses that CLI's credits)
 ```
+
+### `--planner`
+
+The named agent CLI (`claude`, `codex`, `opencode`, `droid`, or `mock`) is
+asked to split the goal into at most `planner_max_tasks` tasks with
+dependencies, `allowed_paths`, acceptance criteria and test commands. Its
+answer is treated as a proposal, never as policy:
+
+- It runs in a **throwaway detached worktree** at the baseline commit, never
+  in your working copy. Files it writes there are listed and discarded.
+- Your working copy's `HEAD` and `git status` are compared before and after;
+  any change is a hard error and no plan is created.
+- Only the agent's own output is parsed (not the log header, which echoes the
+  prompt); the **last** JSON object with a non-empty `tasks` list wins.
+- Agent choices and `options` in the planner's output are ignored — task
+  agents come from `--agent`, `default_agent`, or the first verified CLI. The
+  goal and baseline are yours, not the planner's.
+- The result goes through the same validation as a plan file (keys, DAG,
+  test argv). Review notes flag tasks with no `allowed_paths` and tasks whose
+  paths overlap without a dependency (they will run one at a time).
+- Planner-proposed test commands run only when you call
+  `guy review <TASK> --run-tests`.
+- Log: `<data>/logs/<repo-id>/planner/`. Events: `planner_started`,
+  `planner_finished`, `planner_touched_working_copy`.
 
 Planning changes nothing. A plan records a baseline branch + commit. If the
 baseline branch is dirty you are warned — worktrees start from the committed
@@ -184,6 +209,7 @@ guy demo [--keep]            # disposable repo + mock agents, zero model cost
 | `default_agent` | auto-detect | agent for plans that don't specify one |
 | `run_timeout_seconds` | 1800 | per-task timeout unless the task overrides |
 | `planner_timeout_seconds` | 300 | `--planner` adapter timeout |
+| `planner_max_tasks` | 8 | reject planner output with more tasks than this |
 | `log_max_bytes` | 1,000,000 | per-run log cap (keeps tail) |
 | `log_retention_days` | 30 | prune window |
 | `safe_retry_failure_classes` | `["spawn_error"]` | failures eligible for auto-retry |

@@ -237,6 +237,7 @@ func cmdPlan(c *Ctx, p parsed) error {
 	}
 	var spec map[string]any
 	source := ""
+	var planned *plannerResult
 	switch {
 	case p.flag("file") != "":
 		data, err := os.ReadFile(p.flag("file"))
@@ -248,11 +249,17 @@ func cmdPlan(c *Ctx, p parsed) error {
 		}
 		source = "file " + p.flag("file")
 	case p.flag("planner") != "":
-		return fmt.Errorf("--planner is not yet implemented in the Go port; write a plan JSON (see docs/command-reference.md) or use the Python CLI's planner experimentally")
+		planned, err = runPlanner(c.Store, repo, p.flag("planner"),
+			strings.Join(p.positional, " "), p.flag("base"), settings)
+		if err != nil {
+			return err
+		}
+		spec = planned.Spec
+		source = "planner " + planned.Planner
 	default:
 		prompt := strings.Join(p.positional, " ")
 		if prompt == "" {
-			return usage("provide a prompt, a --file plan.json (the Go port does not yet support --planner)")
+			return usage("provide a prompt, a --file plan.json, or a goal with --planner <agent>")
 		}
 		title := prompt
 		if idx := strings.IndexAny(title, "\r\n"); idx >= 0 {
@@ -270,7 +277,17 @@ func cmdPlan(c *Ctx, p parsed) error {
 	}
 	plan, created, err := createPlanFromSpec(c.Store, repo, spec, p.flag("base"), agentName)
 	if err != nil {
+		if planned != nil {
+			return fmt.Errorf("planner output failed validation: %w; log: %s", err, planned.LogPath)
+		}
 		return err
+	}
+	var plannerNotes []string
+	if planned != nil {
+		plannerNotes = planned.Warnings
+		_ = c.Store.AppendEvent("planner_finished", repo.ID, "", map[string]any{
+			"plan": plan.ID, "planner": planned.Planner, "log": planned.LogPath,
+			"tasks": len(created), "notes": plannerNotes})
 	}
 	lines := []string{
 		fmt.Sprintf("created DRAFT plan %s (%s) — nothing has been executed or modified", plan.ID, source),
@@ -287,13 +304,32 @@ func cmdPlan(c *Ctx, p parsed) error {
 			ro = " [read-only]"
 		}
 		lines = append(lines, fmt.Sprintf("    %s: %s (agent: %s%s)%s", t.ID, t.Title, t.Agent, ro, deps))
+		if planned != nil {
+			if len(t.AllowedPaths) > 0 {
+				lines = append(lines, "        paths: "+strings.Join(t.AllowedPaths, ", "))
+			}
+			for _, test := range t.RequiredTests {
+				lines = append(lines, "        test:  "+strings.Join(test, " "))
+			}
+		}
+	}
+	if planned != nil {
+		lines = append(lines, "  planner log: "+planned.LogPath)
+		for _, n := range plannerNotes {
+			lines = append(lines, "  review: "+n)
+		}
+		lines = append(lines, "  the planner proposed these tasks and test commands — read them (`guy show <TASK>`) before approving;",
+			"  test commands only run when you call `guy review <TASK> --run-tests`")
 	}
 	lines = append(lines, "  next: review with `guy tasks`, then `guy approve "+plan.ID+"` (draft -> approved_for_execution)")
 	if warning != "" {
 		lines = append(lines, "  note: "+warning)
 	}
-	return okErr(c, strings.Join(lines, "\n"), map[string]any{
-		"plan": plan, "tasks": created, "warning": warning})
+	payload := map[string]any{"plan": plan, "tasks": created, "warning": warning}
+	if planned != nil {
+		payload["planner"] = map[string]any{"agent": planned.Planner, "log": planned.LogPath, "notes": plannerNotes}
+	}
+	return okErr(c, strings.Join(lines, "\n"), payload)
 }
 
 // writePlanFileForDemo is a helper used by `guy demo` (and tests).

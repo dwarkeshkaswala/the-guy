@@ -85,9 +85,10 @@ Use the venv's Scripts dir (`.venv\Scripts\guy`), activate the venv, or
   dependencies' code unless you integrate the dependency first and re-plan.
   This is deliberate (explicit integration steps), documented in
   `docs/architecture.md`.
-- `--planner` (LLM-generated plans) is experimental and invokes a real CLI
-  (potentially billable); its JSON output is validated, and on garbage output
-  nothing is created.
+- `--planner` invokes a real agent CLI (uses its credits). It runs in a
+  scratch worktree; on failure, garbage output, an invalid DAG, too many
+  tasks, or any change to your working copy, nothing is created and the
+  error names the planner log under `<data>/logs/<repo-id>/planner/`.
 - No TUI/dashboard yet (Phase 5); the CLI is the interface.
 - Conflict *prediction* requires git >= 2.38; older gits check at merge time.
 - `guy logs --follow` polls the file (no OS file-watch dependency).

@@ -63,7 +63,7 @@ the approved integration step, merges `--no-ff` into
 
 **Known gaps carried into Go deliberately unchanged**: dependent tasks run
 from the shared plan baseline (integrate the dependency first, then run the
-dependent); `--planner` is experimental; conflict *prediction* needs git ≥ 2.38.
+dependent); conflict *prediction* needs git ≥ 2.38.
 
 ## Migration decisions
 
@@ -115,10 +115,12 @@ Implemented and tested (`go test ./...` green on windows/amd64):
 - Review/integration: handoffs, test evidence, gates, merge-tree conflict
   prediction, integration branch only, never push / never default branch.
 
+`plan --planner` was ported later with stricter safety than Python (scratch
+worktree instead of the working copy, prompt-echo-proof JSON extraction,
+planner agent/options/base ignored); see docs/command-reference.md.
+
 Deliberately not ported (documented, non-silent):
 
-- `plan --planner` (experimental LLM planning in Python) — the command
-  explains this and points at plan files.
 - Optional localhost API / dashboard (spec says optional; `--json` output is
   the machine-readable surface for a future VS Code extension).
 - `logs --follow` polls the file (same as Python; no fsnotify dependency).

@@ -5,6 +5,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/dwkaswala/the-guy/internal/store"
 	"github.com/dwkaswala/the-guy/internal/tasks"
 )
@@ -55,4 +57,22 @@ func CleanTask(st *store.Store, repo *tasks.Repo, task *tasks.Task, deleteBranch
 
 func PlanForIntegrate(st *store.Store, repo *tasks.Repo, planID string) (*tasks.Plan, error) {
 	return planForIntegrate(st, repo, planID)
+}
+
+// PlanWithPlanner runs `--planner` for non-CLI front ends (desktop app):
+// scratch-worktree planner run, sanitize, validate, persist as a DRAFT plan.
+func PlanWithPlanner(st *store.Store, repo *tasks.Repo, plannerName, goal, baseBranch, agentName string, settings map[string]any) (*tasks.Plan, []*tasks.Task, map[string]any, error) {
+	planned, err := runPlanner(st, repo, plannerName, goal, baseBranch, settings)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	plan, created, err := createPlanFromSpec(st, repo, planned.Spec, baseBranch, agentName)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("planner output failed validation: %w; log: %s", err, planned.LogPath)
+	}
+	_ = st.AppendEvent("planner_finished", repo.ID, "", map[string]any{
+		"plan": plan.ID, "planner": planned.Planner, "log": planned.LogPath,
+		"tasks": len(created), "notes": planned.Warnings})
+	return plan, created, map[string]any{
+		"agent": planned.Planner, "log": planned.LogPath, "notes": planned.Warnings}, nil
 }

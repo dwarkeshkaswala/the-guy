@@ -430,6 +430,29 @@ func (s *Service) CreatePlan(repoRef, specJSON, baseBranch, defaultAgent string)
 	return map[string]any{"plan": plan, "tasks": created, "warning": warning}, nil
 }
 
+// CreatePlanWithPlanner asks an installed agent CLI to break goal into a
+// draft task DAG (same code path and safety checks as `guy plan --planner`).
+// It can take minutes; progress is reported via guy:planner events.
+func (s *Service) CreatePlanWithPlanner(repoRef, goal, planner, baseBranch, defaultAgent string) (map[string]any, error) {
+	repo, err := cli.ResolveRepo(s.Store, repoRef)
+	if err != nil {
+		return nil, err
+	}
+	settings := config.EffectiveSettings(nil, repo.Path)
+	agentName, warning := cli.DefaultAgentName(defaultAgent, settings)
+	if agentName == "" {
+		return nil, fmt.Errorf("%s", warning)
+	}
+	s.sink.Emit("guy:planner", map[string]any{"repo": repo.ID, "planner": planner, "state": "running"})
+	plan, created, info, err := cli.PlanWithPlanner(s.Store, repo, planner, goal, baseBranch, agentName, settings)
+	if err != nil {
+		s.sink.Emit("guy:planner", map[string]any{"repo": repo.ID, "planner": planner, "state": "failed", "error": err.Error()})
+		return nil, err
+	}
+	s.sink.Emit("guy:planner", map[string]any{"repo": repo.ID, "planner": planner, "state": "done", "plan": plan.ID})
+	return map[string]any{"plan": plan, "tasks": created, "warning": warning, "planner": info}, nil
+}
+
 type PlanView struct {
 	tasks.Plan
 	TaskCounts map[string]int `json:"task_counts"`
