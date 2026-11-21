@@ -219,11 +219,18 @@ func orRoot(wt string) string {
 }
 
 // removeAllLenient deletes a tree even when git left read-only object files
-// (a Windows reality: os.RemoveAll fails on read-only files).
+// (a Windows reality: os.RemoveAll fails on read-only files). Directories are
+// chmod'ed 0o777 — 0o666 would strip the POSIX execute bit, making the tree
+// untraversable and silently defeating both this removal and any later reuse
+// of the path.
 func removeAllLenient(path string) {
-	_ = filepath.Walk(path, func(p string, _ os.FileInfo, err error) error {
-		if err == nil {
-			_ = os.Chmod(p, 0o666)
+	_ = filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
+		if err == nil && info != nil {
+			if info.IsDir() {
+				_ = os.Chmod(p, 0o777)
+			} else {
+				_ = os.Chmod(p, 0o666)
+			}
 		}
 		return nil
 	})

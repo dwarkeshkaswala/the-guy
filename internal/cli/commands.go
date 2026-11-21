@@ -981,6 +981,21 @@ func doCancel(st *store.Store, taskID string) (*tasks.Task, error) {
 		for _, run := range active {
 			run.Status = "cancel-requested"
 			_ = st.UpdateRun(run)
+		}
+		// Give the owning process's poll loop (~300ms cadence) a chance to
+		// perform the cooperative cancel itself, so the outcome is classified
+		// "cancelled" rather than a forced-kill "nonzero" failure. Force-kill
+		// only if the owner does not react.
+		softDeadline := time.Now().Add(1500 * time.Millisecond)
+		for time.Now().Before(softDeadline) {
+			fresh, _ := st.GetTask(task.ID)
+			if fresh != nil && fresh.Status != tasks.StatusRunning {
+				_ = st.AppendEvent("task_cancelled", task.RepoID, task.ID, nil)
+				return fresh, nil
+			}
+			time.Sleep(150 * time.Millisecond)
+		}
+		for _, run := range active {
 			if run.Pid != 0 {
 				process.KillTree(run.Pid)
 			}
