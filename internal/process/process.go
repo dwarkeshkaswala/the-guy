@@ -207,6 +207,13 @@ loop:
 	}
 	writer.flush()
 
+	// `guy cancel` marks the run cancel-requested and kills the tree itself,
+	// so the process can exit before the next poll tick observes the request.
+	// Re-check once so a user cancel is never misclassified as a crash.
+	if !cancelled && !timedOut && statusPoll != nil && statusPoll() == "cancel-requested" {
+		cancelled = true
+	}
+
 	duration := time.Since(started).Milliseconds()
 	exitCode, exitSet := exitCodeOf(waitErr)
 	failureClass, note := "", ""

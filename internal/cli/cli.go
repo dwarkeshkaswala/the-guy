@@ -12,7 +12,9 @@ import (
 	"github.com/dwkaswala/the-guy/internal/store"
 )
 
-const Version = "0.2.0-go"
+// Version is the CLI version. It is a var so release builds can stamp it via
+// cmd/guy (-ldflags "-X main.version=...").
+var Version = "0.2.0-go"
 
 // parsed holds flags (with values) and positionals for one command.
 type parsed struct {

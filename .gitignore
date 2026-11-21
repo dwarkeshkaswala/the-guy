@@ -9,14 +9,14 @@ dist/
 /guy-*.exe
 adapter-cache.json.tmp
 
-# desktop GUI
+# desktop GUI (built binaries anchored to repo root)
 frontend/node_modules/
 frontend/bindings/
 frontend/dist/
 bin/
-the-guy-desktop.exe
-the-guy-desktop-*.exe
+/the-guy-desktop.exe
+/the-guy-desktop-*.exe
 
 # wails task cache
 .task/
-the-guy.exe
+/the-guy.exe

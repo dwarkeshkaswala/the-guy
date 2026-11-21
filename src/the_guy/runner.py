@@ -206,6 +206,13 @@ def execute(argv: List[str],
     pump_done.wait(timeout=15)
     reader.join(timeout=5)
 
+    # `guy cancel` kills the tree itself after marking cancel-requested, so the
+    # process may exit before the poll above sees the request. Re-check once
+    # so a user cancel is never misclassified as a crash.
+    if not cancelled and not timed_out and status_poll is not None \
+            and status_poll() == "cancel-requested":
+        cancelled = True
+
     duration_ms = int((time.monotonic() - started) * 1000)
     if cancelled:
         failure_class, note = "cancelled", "cancelled by user; process tree killed"
