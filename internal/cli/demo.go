@@ -237,6 +237,13 @@ func removeAllLenient(path string) {
 	_ = os.RemoveAll(path)
 }
 
+// sameDir compares two directory paths, tolerating symlinked roots (e.g.
+// macOS TMPDIR: git resolves /var/folders to /private/var/folders).
 func sameDir(a, b string) bool {
-	return pathutil.Normalize(a) == pathutil.Normalize(b)
+	if pathutil.Normalize(a) == pathutil.Normalize(b) {
+		return true
+	}
+	ra, errA := filepath.EvalSymlinks(a)
+	rb, errB := filepath.EvalSymlinks(b)
+	return errA == nil && errB == nil && ra == rb
 }
